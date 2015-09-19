@@ -3,11 +3,18 @@ package mandrill
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
-type APIInfo struct {
+func logImport() {
+	log.Println("logimport")
+}
+
+type UsersAPI struct {
 	URL     string
 	Request map[string]interface{}
 }
@@ -51,81 +58,166 @@ type Error struct {
 	Message string
 }
 
-func (u *User) GetInfo(key string) Error {
-	api := APIInfo{
-		URL:     APIURL + "/info.json",
-		Request: make(map[string]interface{}),
+func (a *UsersAPI) GetInfo(key string) (User, error) {
+	a.URL = APIURL + "/info.json"
+	if len(a.Request) < 1 {
+		a.Request = make(map[string]interface{})
 	}
-	api.Request["key"] = key
-	jsonReq, err := json.Marshal(api.Request)
-	if err != nil {
-		return Error{
-			Status:  "error",
-			Code:    -1,
-			Name:    "JSON Marshal Error",
-			Message: err.Error(),
-		}
-	}
-	req, err := http.NewRequest("POST", api.URL, bytes.NewBuffer(jsonReq))
-	if err != nil {
-		return Error{
-			Status:  "error",
-			Code:    -1,
-			Name:    "HTTP Request Error",
-			Message: err.Error(),
-		}
+	a.Request["key"] = key
 
+	jsonReq, err := json.Marshal(a.Request)
+	if err != nil {
+		return User{}, errors.New(fmt.Sprintf("JSON Marshal Error: %v", err.Error()))
 	}
+
+	req, err := http.NewRequest("POST", a.URL, bytes.NewBuffer(jsonReq))
+	if err != nil {
+		return User{}, errors.New(fmt.Sprintf("HTTP Request Error:  %v", err.Error()))
+	}
+
+	req.Header.Set("X-Custom-Header", "go-mandrill")
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return User{}, errors.New(fmt.Sprintf("HTTP Request Error:  %v", err.Error()))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 500 {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return User{}, errors.New(
+					fmt.Sprintf(
+						"IOUtil Readall Error:  %v",
+						err.Error(),
+					),
+				)
+			}
+			e := Error{}
+			if err := json.Unmarshal(body, &e); err != nil {
+				return User{}, errors.New(
+					fmt.Sprintf(
+						"JSON Unmarshal Error:  %v",
+						err.Error(),
+					),
+				)
+			}
+			return User{}, errors.New(
+				fmt.Sprintf(
+					"HTTP Response Server Error: %v:%v",
+					e.Code,
+					e.Message,
+				),
+			)
+		}
+		return User{}, errors.New(
+			fmt.Sprintf(
+				"HTTP Server Reponse Error: %v:%v",
+				resp.StatusCode,
+				resp.Status,
+			),
+		)
+	}
+	u := User{}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &u); err != nil {
+		return User{}, errors.New(
+			fmt.Sprintf(
+				"JSON Unmarshal Error:  %v",
+				err.Error(),
+			),
+		)
+	}
+	return u, nil
+}
+
+func (a *UsersAPI) Ping(key string) (string, error) {
+	a.URL = APIURL + "/ping.json"
+	if len(a.Request) < 1 {
+		a.Request = make(map[string]interface{})
+	}
+	a.Request["key"] = key
+
+	jsonReq, err := json.Marshal(a.Request)
+	if err != nil {
+		return "", errors.New(
+			fmt.Sprintf(
+				"JSON Marshal Error: %v",
+				err.Error(),
+			),
+		)
+	}
+	req, err := http.NewRequest("POST", a.URL, bytes.NewBuffer(jsonReq))
+	if err != nil {
+		return "", errors.New(
+			fmt.Sprintf(
+				"HTTP Request Error: %v",
+				err.Error(),
+			),
+		)
+	}
+
 	req.Header.Set("X-Custom-Header", "go-mandrill")
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return Error{
-			Status:  "error",
-			Code:    -1,
-			Name:    "HTTP Request Error",
-			Message: err.Error(),
-		}
+		return "", errors.New(
+			fmt.Sprintf(
+				"HTTP Request Error: %v",
+				err.Error(),
+			),
+		)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		if resp.StatusCode == 500 {
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				return Error{
-					Status:  "error",
-					Code:    -1,
-					Name:    "IOUtil Readall Error",
-					Message: err.Error(),
-				}
+				return "", errors.New(
+					fmt.Sprintf(
+						"IOUtil Readall Error: %v",
+						err.Error(),
+					),
+				)
 			}
 			e := Error{}
 			if err := json.Unmarshal(body, &e); err != nil {
-				return Error{
-					Status:  "error",
-					Code:    -1,
-					Name:    "JSON Unmarshal Error",
-					Message: err.Error(),
-				}
+				return "", errors.New(
+					fmt.Sprintf(
+						"JSON Unmarshal Error: %v",
+						err.Error(),
+					),
+				)
 			}
-			return e
+			return "", errors.New(
+				fmt.Sprintf(
+					"Mandrill Error %v:%v",
+					e.Code,
+					e.Message,
+				),
+			)
 		}
-		return Error{
-			Status:  "error",
-			Code:    resp.StatusCode,
-			Name:    "HTTP Server Reponse Error",
-			Message: resp.Status,
-		}
+		return "", errors.New(
+			fmt.Sprintf(
+				"Mandrill Error %v:%v",
+				resp.StatusCode,
+				resp.Status,
+			),
+		)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	if err := json.Unmarshal(body, &u); err != nil {
-		return Error{
-			Status:  "error",
-			Code:    -1,
-			Name:    "JASON Unmarshal Error",
-			Message: err.Error(),
-		}
+	var pong string
+	if err := json.Unmarshal(body, &pong); err != nil {
+		return "", errors.New(
+			fmt.Sprintf(
+				"JSON Unmarshal Error: %v",
+				err.Error(),
+			),
+		)
 	}
-	return Error{Code: 0}
+	return string(pong), nil
 }
