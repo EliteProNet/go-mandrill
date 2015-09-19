@@ -10,6 +10,7 @@ import (
 	"net/http"
 )
 
+//Import log package for dev purposes
 func logImport() {
 	log.Println("logimport")
 }
