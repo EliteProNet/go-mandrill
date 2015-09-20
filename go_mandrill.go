@@ -73,6 +73,79 @@ type Error struct {
 	Message string
 }
 
+type Recipient struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+	Type  string `json:"type"`
+}
+
+type Header struct {
+	Value string
+}
+type Vars struct {
+	Name    string
+	Content string
+}
+type MergeVars struct {
+	Rcpt string `json:"rcpt"`
+	Vars []Vars `json:"vars"`
+}
+type MetaData struct {
+	Value string
+}
+type RcptMetaData struct {
+	Rcpt   string         `json:"rcpt"`
+	Values map[string]int `json:"values"`
+}
+
+type Message struct {
+	HTML                    string         `json:"html"`
+	Text                    string         `json:"text"`
+	Subject                 string         `json:"subject"`
+	FromEmail               string         `json:"from_email"`
+	FromName                string         `json:"from_name"`
+	To                      []Recipient    `json:"to"`
+	Headers                 []Header       `json:"headers"`
+	Important               bool           `json:"important"`
+	TrackOpens              bool           `json:"track_opens"`
+	TrackClicks             bool           `json:"track_clicks"`
+	AutoText                bool           `json:"auto_text"`
+	AutoHTML                bool           `json:"auto_html"`
+	InlineCSS               bool           `json:"inline_css"`
+	URLStripQS              bool           `json:"url_strip_qs"`
+	PreserveRecipients      bool           `json:"preserve_recipients"`
+	ViewContentLink         bool           `json:"view_content_link"`
+	BCCAddress              string         `json:"bcc_address"`
+	TrackingDomain          bool           `json:"tracking_domain"`
+	SigningDomain           bool           `json:"signing_domain"`
+	ReturnPathDomain        bool           `json:"return_path_domain"`
+	Merge                   bool           `json:"merge"`
+	MergeLanguage           string         `json:"merge_language"`
+	GlobalMergeVars         []Vars         `json:"global_merge_vars"`
+	Tags                    []string       `json:"tags"`
+	SubAccount              string         `json:"subaccount"`
+	GoogleAnalyticsDomains  []string       `json:"google_analytics_domains"`
+	GoogleAnalyticsCampaign string         `json:"google_analytics_campaign"`
+	MetaData                MetaData       `json:"metadata"`
+	RecipientMetaData       []RcptMetaData `json:"recipient_metadata"`
+	Attachments             []Attachment   `json:"attachments"`
+	Images                  []Attachment   `json:"images"`
+}
+type Attachment struct {
+	Type    string
+	Name    string
+	Content string
+}
+
+type MessageAPI struct {
+	Key     string  `json:"key"`
+	Message Message `json:"message"`
+	Async   bool    `json:"async"`
+	IPPool  string  `json:"ip_pool"`
+	SendAt  string  `json:"send_at"`
+}
+
+//Users API
 func (a *UsersAPI) GetInfo(key string) (User, error) {
 	a.URL = APIURL + "/info.json"
 	if len(a.Request) < 1 {
