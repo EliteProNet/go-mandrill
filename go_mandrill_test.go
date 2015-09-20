@@ -26,3 +26,14 @@ func TestUsersPing(t *testing.T) {
 	log.Println("UsersAPI Ping Successful")
 	log.Printf("UsersAPI Ping Results: %#v\n\n", ping)
 }
+
+func TestUsersSenders(t *testing.T) {
+	u := UsersAPI{}
+	senders, err := u.Senders("NjixlbCzdB14TazGCnYyEQ")
+	if err != nil {
+		log.Println("UsersAPI Senders Error")
+		log.Print(err)
+	}
+	log.Println("UsersAPI Senders Successful")
+	log.Printf("UsersAPI Senders Results: %#v\n\n", senders)
+}

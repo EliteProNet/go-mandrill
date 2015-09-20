@@ -31,6 +31,20 @@ type User struct {
 	Backlog     int        `json:"backlog"`
 	Stats       Stat       `json:"stats"`
 }
+type Sender struct {
+	Address      string     `json:"address"`
+	CreatedAt    CustomTime `json:"created_at"`
+	Sent         int        `json:"sent"`
+	HardBounces  int        `json:"hard_bounces"`
+	SoftBounces  int        `json:"soft_bounces"`
+	Rejects      int        `json:"rejects:`
+	Complaints   int        `json:"complaints"`
+	Unsubs       int        `json:"unsubs"`
+	Opens        int        `json:"opens"`
+	Clicks       int        `json:"clicks"`
+	UniqueOpens  int        `json:"unique_opens"`
+	UniqueClicks int        `json:"unique_clicks"`
+}
 
 type StatInfo struct {
 	Sent         int `json:"sent"`
@@ -221,4 +235,79 @@ func (a *UsersAPI) Ping(key string) (string, error) {
 		)
 	}
 	return string(pong), nil
+}
+
+func (a *UsersAPI) Senders(key string) ([]Sender, error) {
+	a.URL = APIURL + "/senders.json"
+	if len(a.Request) < 1 {
+		a.Request = make(map[string]interface{})
+	}
+	a.Request["key"] = key
+	senders := []Sender{}
+	jsonReq, err := json.Marshal(a.Request)
+	if err != nil {
+		return senders, errors.New(fmt.Sprintf("JSON Marshal Error: %v", err.Error()))
+	}
+
+	req, err := http.NewRequest("POST", a.URL, bytes.NewBuffer(jsonReq))
+	if err != nil {
+		return senders, errors.New(fmt.Sprintf("HTTP Request Error:  %v", err.Error()))
+	}
+
+	req.Header.Set("X-Custom-Header", "go-mandrill")
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return senders, errors.New(fmt.Sprintf("HTTP Request Error:  %v", err.Error()))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 500 {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return senders, errors.New(
+					fmt.Sprintf(
+						"IOUtil Readall Error:  %v",
+						err.Error(),
+					),
+				)
+			}
+			e := Error{}
+			if err := json.Unmarshal(body, &e); err != nil {
+				return senders, errors.New(
+					fmt.Sprintf(
+						"JSON Unmarshal Error:  %v",
+						err.Error(),
+					),
+				)
+			}
+			return senders, errors.New(
+				fmt.Sprintf(
+					"HTTP Response Server Error: %v:%v",
+					e.Code,
+					e.Message,
+				),
+			)
+		}
+		return senders, errors.New(
+			fmt.Sprintf(
+				"HTTP Server Reponse Error: %v:%v",
+				resp.StatusCode,
+				resp.Status,
+			),
+		)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(body, &senders); err != nil {
+		return senders, errors.New(
+			fmt.Sprintf(
+				"JSON Unmarshal Error:  %v",
+				err.Error(),
+			),
+		)
+	}
+	return senders, nil
 }
